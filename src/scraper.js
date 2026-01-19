@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import cheerio from "cheerio";
+import * as cheerio from "cheerio";
 
 const DATA_DIR = path.resolve("data");
 
@@ -52,15 +52,14 @@ function absUrl(base, href) {
 }
 
 async function fetchHtml(url) {
-  // Node 18+ tem fetch nativo
   const res = await fetch(url, {
     headers: {
       "user-agent":
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-      "accept": "text/html,application/xhtml+xml",
+      accept: "text/html,application/xhtml+xml",
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
       "cache-control": "no-cache",
-      "pragma": "no-cache",
+      pragma: "no-cache",
     },
   });
 
