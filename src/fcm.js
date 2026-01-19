@@ -32,9 +32,23 @@ function saveTokens(tokens) {
  */
 export function initFirebaseAdmin() {
   try {
-    const envJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    let envJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-    if (!envJson || !envJson.trim().startsWith("{")) {
+    if (!envJson) {
+      console.log("⚠️ Firebase: FIREBASE_SERVICE_ACCOUNT ausente/ inválida (não é JSON).");
+      return false;
+    }
+
+    // remove aspas externas se vierem do painel/arquivo
+    envJson = envJson.trim();
+    if (
+      (envJson.startsWith("'") && envJson.endsWith("'")) ||
+      (envJson.startsWith('"') && envJson.endsWith('"'))
+    ) {
+      envJson = envJson.slice(1, -1).trim();
+    }
+
+    if (!envJson.startsWith("{")) {
       console.log("⚠️ Firebase: FIREBASE_SERVICE_ACCOUNT ausente/ inválida (não é JSON).");
       return false;
     }
