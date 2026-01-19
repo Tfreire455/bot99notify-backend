@@ -2,15 +2,17 @@ import fs from "fs";
 import path from "path";
 import admin from "firebase-admin";
 
-const TOKENS_PATH = path.resolve("data/device_tokens.json");
+// Em cloud, prefira /tmp (configurável por env)
+const TOKENS_PATH = process.env.TOKENS_PATH
+  ? path.resolve(process.env.TOKENS_PATH)
+  : path.resolve("data/device_tokens.json");
 
-function ensureDataDir() {
-  const dir = path.resolve("data");
+function ensureDirForFile(filePath) {
+  const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function loadTokens() {
-  ensureDataDir();
   try {
     return JSON.parse(fs.readFileSync(TOKENS_PATH, "utf8"));
   } catch {
@@ -19,24 +21,32 @@ function loadTokens() {
 }
 
 function saveTokens(tokens) {
-  ensureDataDir();
+  ensureDirForFile(TOKENS_PATH);
   fs.writeFileSync(TOKENS_PATH, JSON.stringify({ tokens }, null, 2), "utf8");
 }
 
-export function initFirebaseAdmin(serviceAccountPath) {
+/**
+ * Inicializa o Firebase Admin:
+ * - Preferência: FIREBASE_SERVICE_ACCOUNT (JSON)
+ * - NÃO usa arquivo em cloud
+ */
+export function initFirebaseAdmin() {
   try {
-    const full = path.resolve(serviceAccountPath);
-    if (!fs.existsSync(full)) {
-      console.log(`⚠️ Firebase: arquivo não encontrado: ${full}`);
+    const envJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+    if (!envJson || !envJson.trim().startsWith("{")) {
+      console.log("⚠️ Firebase: FIREBASE_SERVICE_ACCOUNT ausente/ inválida (não é JSON).");
       return false;
     }
 
-    const raw = fs.readFileSync(full, "utf8");
-    const serviceAccount = JSON.parse(raw);
+    const serviceAccount = JSON.parse(envJson);
 
-    // validação mínima para evitar crash com json errado
-    if (!serviceAccount.project_id || typeof serviceAccount.project_id !== "string") {
-      console.log("⚠️ Firebase: serviceAccountKey.json inválido (sem project_id). Baixe o JSON correto em Project settings > Service accounts.");
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+    }
+
+    if (!serviceAccount?.project_id || typeof serviceAccount.project_id !== "string") {
+      console.log("⚠️ Firebase: service account inválido (sem project_id).");
       return false;
     }
 
@@ -64,7 +74,6 @@ export function registerDeviceToken(token) {
 }
 
 export async function sendNewProjectPush({ title, body, url }) {
-  // se firebase não inicializou, não tenta
   if (admin.apps.length === 0) return { sent: 0, reason: "firebase_not_initialized" };
 
   const db = loadTokens();

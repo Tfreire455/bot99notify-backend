@@ -3,7 +3,6 @@ import OpenAI from "openai";
 const clamp = (s, max = 3000) => String(s || "").trim().slice(0, max);
 
 export async function generateProposal({ apiKey, projectTitle, projectSnippet, projectUrl, value, prazoDias }) {
-  // fallback sem IA
   const fallback = () => {
     const v = value ? `R$ ${value}` : "a combinar";
     const p = prazoDias ? `${prazoDias} dias` : "a combinar";
@@ -43,8 +42,10 @@ Valor: ${value ? `R$ ${value}` : "a combinar"}
 Prazo: ${prazoDias ? `${prazoDias} dias` : "a combinar"}
 `;
 
+    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+
     const r = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.6,
     });

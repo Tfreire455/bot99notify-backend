@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import path from "path";
 
 import { initFirebaseAdmin, registerDeviceToken, sendNewProjectPush } from "./fcm.js";
 import { generateProposal } from "./proposal.js";
@@ -12,16 +11,23 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = Number(process.env.PORT || 3333);
+const HOST = process.env.HOST || "0.0.0.0";
+
 const PROJECTS_URL = process.env.PROJECTS_URL;
 const HEADLESS = String(process.env.HEADLESS || "true").toLowerCase() === "true";
 const POLL_SECONDS = Number(process.env.POLL_SECONDS || 60);
 
-const FIREBASE_SERVICE_ACCOUNT = process.env.FIREBASE_SERVICE_ACCOUNT;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-if (FIREBASE_SERVICE_ACCOUNT) {
-  initFirebaseAdmin(path.resolve(FIREBASE_SERVICE_ACCOUNT));
-  console.log("✅ Firebase Admin inicializado");
+// Em cloud: FIREBASE_SERVICE_ACCOUNT deve ser JSON (string).
+// Aqui só checamos se existe.
+const HAS_FIREBASE = Boolean(process.env.FIREBASE_SERVICE_ACCOUNT);
+
+// Inicializa Firebase Admin (lê ENV internamente)
+if (HAS_FIREBASE) {
+  const ok = initFirebaseAdmin();
+  if (ok) console.log("✅ Firebase Admin inicializado");
+  else console.log("⚠️ Firebase Admin NÃO inicializou (Push desativado)");
 } else {
   console.log("⚠️ FIREBASE_SERVICE_ACCOUNT não definido. Push desativado.");
 }
@@ -58,6 +64,11 @@ app.post("/proposal", async (req, res) => {
 });
 
 async function poll() {
+  if (!PROJECTS_URL) {
+    console.log("❌ PROJECTS_URL não definido. Poll não vai rodar.");
+    return;
+  }
+
   const seenLinks = getSeenLinksSet();
 
   while (true) {
@@ -72,7 +83,7 @@ async function poll() {
         for (const n of news) {
           seenLinks.add(n.link);
 
-          if (FIREBASE_SERVICE_ACCOUNT) {
+          if (HAS_FIREBASE) {
             await sendNewProjectPush({
               title: "Novo projeto no 99Freelas",
               body: n.title,
@@ -93,8 +104,7 @@ async function poll() {
   }
 }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ API rodando em http://0.0.0.0:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`✅ API rodando em http://${HOST}:${PORT}`);
   poll();
 });
-

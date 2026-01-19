@@ -3,11 +3,19 @@ import path from "path";
 import { chromium } from "playwright";
 
 const DATA_DIR = path.resolve("data");
-const OUT_PATH = path.resolve("data/projects.json");
-const SEEN_PATH = path.resolve("data/seen.json");
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// Em cloud, prefira /tmp. Você pode sobrescrever por env.
+const OUT_PATH = process.env.PROJECTS_OUT_PATH
+  ? path.resolve(process.env.PROJECTS_OUT_PATH)
+  : path.resolve(DATA_DIR, "projects.json");
+
+const SEEN_PATH = process.env.SEEN_PATH
+  ? path.resolve(process.env.SEEN_PATH)
+  : path.resolve(DATA_DIR, "seen.json");
+
+function ensureDirForFile(filePath) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function loadSeen() {
@@ -19,6 +27,7 @@ function loadSeen() {
 }
 
 function saveSeen(links) {
+  ensureDirForFile(SEEN_PATH);
   fs.writeFileSync(SEEN_PATH, JSON.stringify({ links }, null, 2), "utf8");
 }
 
@@ -35,7 +44,7 @@ function uniqBy(arr, keyFn) {
 }
 
 async function scrapeProjects({ projectsUrl, headless }) {
-  ensureDir();
+  ensureDirForFile(OUT_PATH);
 
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext({
@@ -118,4 +127,4 @@ export function persistSeenLinks(setLinks, keepLast = 2000) {
   saveSeen(arr);
 }
 
-export const paths = { OUT_PATH };
+export const paths = { OUT_PATH, SEEN_PATH };
